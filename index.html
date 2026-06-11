@@ -9,9 +9,243 @@
   <body>
     <main class="app">
       <header class="app__header">
-        <h1>Kanban Board</h1>
-        <p>Стартовая точка для будущей канбан-доски.</p>
+        <div>
+          <h1>Kanban Board</h1>
+          <p>Доска задач с настраиваемыми колонками и цветами карточек.</p>
+        </div>
+
+        <form class="column-form" id="column-form">
+          <label class="field">
+            <span>Название столбца</span>
+            <input id="column-title" name="title" type="text" placeholder="Например, В работе" required>
+          </label>
+          <label class="field field--color">
+            <span>Цвет</span>
+            <input id="column-color" name="color" type="color" value="#dbeafe">
+          </label>
+          <button type="submit">Добавить столбец</button>
+        </form>
       </header>
+
+      <section class="board" id="board" aria-label="Канбан доска"></section>
     </main>
+
+    <template id="column-template">
+      <article class="column">
+        <header class="column__header">
+          <div class="column__accent"></div>
+          <div>
+            <h2></h2>
+            <span class="column__count"></span>
+          </div>
+        </header>
+        <form class="card-form">
+          <input name="card" type="text" placeholder="Новая карточка" required>
+          <button type="submit">Добавить</button>
+        </form>
+        <div class="card-list"></div>
+      </article>
+    </template>
+
+    <script>
+      const STORAGE_KEY = "kanban-board-state";
+      const DEFAULT_COLUMNS = [
+        { id: "todo", title: "К выполнению", color: "#e0f2fe", cards: [
+          { id: "task-1", title: "Собрать требования" },
+          { id: "task-2", title: "Оценить задачи" }
+        ] },
+        { id: "progress", title: "В работе", color: "#fef3c7", cards: [
+          { id: "task-3", title: "Сверстать интерфейс" }
+        ] },
+        { id: "done", title: "Готово", color: "#dcfce7", cards: [] }
+      ];
+
+      const board = document.querySelector("#board");
+      const columnForm = document.querySelector("#column-form");
+      const columnTitle = document.querySelector("#column-title");
+      const columnColor = document.querySelector("#column-color");
+      const columnTemplate = document.querySelector("#column-template");
+
+      let state = loadState();
+      let draggedCard = null;
+
+      function loadState() {
+        const savedState = localStorage.getItem(STORAGE_KEY);
+
+        if (!savedState) {
+          return structuredClone(DEFAULT_COLUMNS);
+        }
+
+        try {
+          const parsedState = JSON.parse(savedState);
+          return Array.isArray(parsedState) ? parsedState : structuredClone(DEFAULT_COLUMNS);
+        } catch {
+          return structuredClone(DEFAULT_COLUMNS);
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function createId(prefix) {
+        return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+
+      function getColumn(columnId) {
+        return state.find((column) => column.id === columnId);
+      }
+
+      function getCardLocation(cardId) {
+        for (const column of state) {
+          const cardIndex = column.cards.findIndex((card) => card.id === cardId);
+
+          if (cardIndex !== -1) {
+            return { column, cardIndex };
+          }
+        }
+
+        return null;
+      }
+
+      function moveCard(cardId, targetColumnId) {
+        const source = getCardLocation(cardId);
+        const targetColumn = getColumn(targetColumnId);
+
+        if (!source || !targetColumn) {
+          return;
+        }
+
+        const [card] = source.column.cards.splice(source.cardIndex, 1);
+        targetColumn.cards.push(card);
+        saveState();
+        renderBoard();
+      }
+
+      function renderBoard() {
+        board.replaceChildren();
+
+        if (state.length === 0) {
+          const emptyMessage = document.createElement("p");
+          emptyMessage.className = "board__empty";
+          emptyMessage.textContent = "Добавьте первый столбец.";
+          board.append(emptyMessage);
+          return;
+        }
+
+        state.forEach((column) => {
+          const columnNode = columnTemplate.content.firstElementChild.cloneNode(true);
+          const title = columnNode.querySelector("h2");
+          const count = columnNode.querySelector(".column__count");
+          const accent = columnNode.querySelector(".column__accent");
+          const cardForm = columnNode.querySelector(".card-form");
+          const cardInput = cardForm.querySelector("input");
+          const cardList = columnNode.querySelector(".card-list");
+
+          columnNode.dataset.columnId = column.id;
+          title.textContent = column.title;
+          count.textContent = `${column.cards.length} ${getTaskWord(column.cards.length)}`;
+          accent.style.background = column.color;
+          cardList.dataset.columnId = column.id;
+
+          column.cards.forEach((card) => {
+            cardList.append(createCardNode(card, column.color));
+          });
+
+          cardForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const cardTitle = cardInput.value.trim();
+
+            if (!cardTitle) {
+              return;
+            }
+
+            column.cards.push({ id: createId("card"), title: cardTitle });
+            cardInput.value = "";
+            saveState();
+            renderBoard();
+          });
+
+          cardList.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            cardList.classList.add("card-list--drag-over");
+          });
+
+          cardList.addEventListener("dragleave", () => {
+            cardList.classList.remove("card-list--drag-over");
+          });
+
+          cardList.addEventListener("drop", (event) => {
+            event.preventDefault();
+            cardList.classList.remove("card-list--drag-over");
+            const cardId = event.dataTransfer.getData("text/plain") || draggedCard;
+            moveCard(cardId, column.id);
+          });
+
+          board.append(columnNode);
+        });
+      }
+
+      function createCardNode(card, color) {
+        const cardNode = document.createElement("article");
+        cardNode.className = "card";
+        cardNode.draggable = true;
+        cardNode.dataset.cardId = card.id;
+        cardNode.style.background = color;
+        cardNode.textContent = card.title;
+
+        cardNode.addEventListener("dragstart", (event) => {
+          draggedCard = card.id;
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", card.id);
+          cardNode.classList.add("card--dragging");
+        });
+
+        cardNode.addEventListener("dragend", () => {
+          draggedCard = null;
+          cardNode.classList.remove("card--dragging");
+        });
+
+        return cardNode;
+      }
+
+      function getTaskWord(count) {
+        const lastDigit = count % 10;
+        const lastTwoDigits = count % 100;
+
+        if (lastDigit === 1 && lastTwoDigits !== 11) {
+          return "задача";
+        }
+
+        if ([2, 3, 4].includes(lastDigit) && ![12, 13, 14].includes(lastTwoDigits)) {
+          return "задачи";
+        }
+
+        return "задач";
+      }
+
+      columnForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const title = columnTitle.value.trim();
+
+        if (!title) {
+          return;
+        }
+
+        state.push({
+          id: createId("column"),
+          title,
+          color: columnColor.value,
+          cards: []
+        });
+
+        columnTitle.value = "";
+        columnColor.value = "#dbeafe";
+        saveState();
+        renderBoard();
+      });
+
+      renderBoard();
+    </script>
   </body>
 </html>

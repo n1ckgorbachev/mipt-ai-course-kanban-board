@@ -1,10 +1,14 @@
 :root {
   color-scheme: light;
-  --color-background: #f7f8fa;
+  --color-background: #f3f5f8;
   --color-surface: #ffffff;
   --color-text: #172033;
   --color-muted: #667085;
   --color-border: #d9dee8;
+  --color-border-strong: #b8c0cf;
+  --color-button: #1f2937;
+  --color-button-hover: #111827;
+  --shadow-soft: 0 10px 28px rgb(15 23 42 / 8%);
   --font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -22,17 +26,62 @@ body {
 }
 
 h1,
+h2,
 p {
   margin: 0;
 }
 
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--color-button);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+button:hover {
+  background: var(--color-button-hover);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--color-text);
+  outline: none;
+  padding: 0 12px;
+}
+
+input:focus {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 0 0 3px rgb(31 41 55 / 10%);
+}
+
 .app {
-  width: min(100% - 32px, 1120px);
+  width: min(100% - 32px, 1280px);
   margin: 0 auto;
-  padding: 48px 0;
+  padding: 32px 0;
 }
 
 .app__header {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(320px, 560px);
+  gap: 24px;
+  align-items: end;
   padding-bottom: 24px;
   border-bottom: 1px solid var(--color-border);
 }
@@ -45,4 +94,151 @@ p {
 .app__header p {
   margin-top: 8px;
   color: var(--color-muted);
+}
+
+.column-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 96px auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.field--color input {
+  padding: 4px;
+}
+
+.column-form button,
+.card-form button {
+  padding: 0 16px;
+  white-space: nowrap;
+}
+
+.board {
+  display: grid;
+  grid-auto-columns: minmax(280px, 320px);
+  grid-auto-flow: column;
+  gap: 16px;
+  min-height: 480px;
+  margin-top: 24px;
+  overflow-x: auto;
+  padding: 4px 2px 18px;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.board__empty {
+  color: var(--color-muted);
+}
+
+.column {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 14px;
+  min-height: 460px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+}
+
+.column__header {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 12px;
+  min-width: 0;
+}
+
+.column__accent {
+  width: 10px;
+  min-height: 48px;
+  border-radius: 6px;
+  border: 1px solid rgb(23 32 51 / 8%);
+}
+
+.column__header h2 {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.column__count {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.card-form {
+  display: grid;
+  gap: 8px;
+}
+
+.card-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 220px;
+  border: 1px dashed transparent;
+  border-radius: 8px;
+  padding: 2px;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.card-list--drag-over {
+  border-color: var(--color-border-strong);
+  background: rgb(31 41 55 / 4%);
+}
+
+.card {
+  min-height: 64px;
+  border: 1px solid rgb(23 32 51 / 10%);
+  border-radius: 8px;
+  box-shadow: 0 8px 18px rgb(15 23 42 / 7%);
+  cursor: grab;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  transition: box-shadow 160ms ease, opacity 160ms ease, transform 160ms ease;
+}
+
+.card:hover {
+  box-shadow: 0 12px 24px rgb(15 23 42 / 11%);
+  transform: translateY(-1px);
+}
+
+.card--dragging {
+  cursor: grabbing;
+  opacity: 0.55;
+}
+
+@media (max-width: 820px) {
+  .app {
+    width: min(100% - 24px, 1280px);
+    padding: 24px 0;
+  }
+
+  .app__header,
+  .column-form {
+    grid-template-columns: 1fr;
+  }
+
+  .column-form {
+    align-items: stretch;
+  }
+
+  .field--color input {
+    width: 88px;
+  }
+
+  .board {
+    grid-auto-columns: minmax(260px, 86vw);
+    min-height: 420px;
+  }
 }
