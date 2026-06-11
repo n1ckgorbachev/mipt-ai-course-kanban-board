@@ -4,31 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kanban Board</title>
-    <link rel="stylesheet" href="style.css?v=20260611">
+    <link rel="stylesheet" href="style.css?v=20260611-projects">
   </head>
   <body>
     <main class="app">
       <header class="app__header">
         <div>
           <h1>Kanban Board</h1>
-          <p>Доска задач с настраиваемыми колонками и цветами карточек.</p>
+          <p>Доска задач с проектами, настраиваемыми колонками и цветами карточек.</p>
         </div>
 
-        <form class="column-form" id="column-form">
+        <form class="project-form" id="project-form">
           <label class="field">
-            <span>Название столбца</span>
-            <input id="column-title" name="title" type="text" placeholder="Например, В работе" required>
+            <span>Название проекта</span>
+            <input id="project-title" name="title" type="text" placeholder="Например, Лендинг" required>
           </label>
-          <label class="field field--color">
-            <span>Цвет</span>
-            <input id="column-color" name="color" type="color" value="#dbeafe">
-          </label>
-          <button type="submit">Добавить столбец</button>
+          <button type="submit">Добавить проект</button>
         </form>
       </header>
 
-      <section class="board" id="board" aria-label="Канбан доска"></section>
+      <section class="projects" id="projects" aria-label="Проекты"></section>
     </main>
+
+    <template id="project-template">
+      <article class="project">
+        <header class="project__header">
+          <button class="project__toggle" type="button" aria-expanded="true">
+            <span class="project__icon" aria-hidden="true"></span>
+            <span class="project__title"></span>
+          </button>
+          <button class="project__delete" type="button">Удалить</button>
+        </header>
+        <div class="project__content">
+          <form class="column-form">
+            <label class="field">
+              <span>Название столбца</span>
+              <input name="title" type="text" placeholder="Например, В работе" required>
+            </label>
+            <label class="field field--color">
+              <span>Цвет</span>
+              <input name="color" type="color" value="#dbeafe">
+            </label>
+            <button type="submit">Добавить столбец</button>
+          </form>
+          <section class="board" aria-label="Канбан доска проекта"></section>
+        </div>
+      </article>
+    </template>
 
     <template id="column-template">
       <article class="column">
@@ -49,6 +71,7 @@
 
     <script>
       const STORAGE_KEY = "kanban-board-state";
+      const DEFAULT_PROJECT_TITLE = "Основной проект";
       const DEFAULT_COLUMNS = [
         { id: "todo", title: "К выполнению", color: "#e0f2fe", cards: [
           { id: "task-1", title: "Собрать требования" },
@@ -59,11 +82,14 @@
         ] },
         { id: "done", title: "Готово", color: "#dcfce7", cards: [] }
       ];
+      const DEFAULT_PROJECTS = [
+        { id: "project-main", title: DEFAULT_PROJECT_TITLE, collapsed: false, columns: DEFAULT_COLUMNS }
+      ];
 
-      const board = document.querySelector("#board");
-      const columnForm = document.querySelector("#column-form");
-      const columnTitle = document.querySelector("#column-title");
-      const columnColor = document.querySelector("#column-color");
+      const projectsContainer = document.querySelector("#projects");
+      const projectForm = document.querySelector("#project-form");
+      const projectTitle = document.querySelector("#project-title");
+      const projectTemplate = document.querySelector("#project-template");
       const columnTemplate = document.querySelector("#column-template");
 
       let state = loadState();
@@ -73,14 +99,28 @@
         const savedState = localStorage.getItem(STORAGE_KEY);
 
         if (!savedState) {
-          return structuredClone(DEFAULT_COLUMNS);
+          return structuredClone(DEFAULT_PROJECTS);
         }
 
         try {
           const parsedState = JSON.parse(savedState);
-          return Array.isArray(parsedState) ? parsedState : structuredClone(DEFAULT_COLUMNS);
+
+          if (!Array.isArray(parsedState)) {
+            return structuredClone(DEFAULT_PROJECTS);
+          }
+
+          if (parsedState.every((item) => Array.isArray(item.columns))) {
+            return parsedState;
+          }
+
+          return [{
+            id: "project-main",
+            title: DEFAULT_PROJECT_TITLE,
+            collapsed: false,
+            columns: parsedState
+          }];
         } catch {
-          return structuredClone(DEFAULT_COLUMNS);
+          return structuredClone(DEFAULT_PROJECTS);
         }
       }
 
@@ -92,40 +132,123 @@
         return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       }
 
-      function getColumn(columnId) {
-        return state.find((column) => column.id === columnId);
+      function getProject(projectId) {
+        return state.find((project) => project.id === projectId);
+      }
+
+      function getColumn(projectId, columnId) {
+        const project = getProject(projectId);
+        return project?.columns.find((column) => column.id === columnId);
       }
 
       function getCardLocation(cardId) {
-        for (const column of state) {
-          const cardIndex = column.cards.findIndex((card) => card.id === cardId);
+        for (const project of state) {
+          for (const column of project.columns) {
+            const cardIndex = column.cards.findIndex((card) => card.id === cardId);
 
-          if (cardIndex !== -1) {
-            return { column, cardIndex };
+            if (cardIndex !== -1) {
+              return { project, column, cardIndex };
+            }
           }
         }
 
         return null;
       }
 
-      function moveCard(cardId, targetColumnId) {
+      function moveCard(cardId, targetProjectId, targetColumnId) {
         const source = getCardLocation(cardId);
-        const targetColumn = getColumn(targetColumnId);
+        const targetColumn = getColumn(targetProjectId, targetColumnId);
 
-        if (!source || !targetColumn) {
+        if (!source || !targetColumn || source.project.id !== targetProjectId) {
           return;
         }
 
         const [card] = source.column.cards.splice(source.cardIndex, 1);
         targetColumn.cards.push(card);
         saveState();
-        renderBoard();
+        renderProjects();
       }
 
-      function renderBoard() {
-        board.replaceChildren();
+      function renderProjects() {
+        projectsContainer.replaceChildren();
 
         if (state.length === 0) {
+          const emptyMessage = document.createElement("p");
+          emptyMessage.className = "projects__empty";
+          emptyMessage.textContent = "Добавьте первый проект.";
+          projectsContainer.append(emptyMessage);
+          return;
+        }
+
+        state.forEach((project) => {
+          projectsContainer.append(createProjectNode(project));
+        });
+      }
+
+      function createProjectNode(project) {
+        const projectNode = projectTemplate.content.firstElementChild.cloneNode(true);
+        const toggleButton = projectNode.querySelector(".project__toggle");
+        const deleteButton = projectNode.querySelector(".project__delete");
+        const title = projectNode.querySelector(".project__title");
+        const content = projectNode.querySelector(".project__content");
+        const columnForm = projectNode.querySelector(".column-form");
+        const columnTitle = columnForm.querySelector('input[name="title"]');
+        const columnColor = columnForm.querySelector('input[name="color"]');
+        const board = projectNode.querySelector(".board");
+
+        projectNode.dataset.projectId = project.id;
+        projectNode.classList.toggle("project--collapsed", project.collapsed);
+        title.textContent = project.title;
+        content.hidden = project.collapsed;
+        toggleButton.setAttribute("aria-expanded", String(!project.collapsed));
+
+        toggleButton.addEventListener("click", () => {
+          project.collapsed = !project.collapsed;
+          saveState();
+          renderProjects();
+        });
+
+        deleteButton.addEventListener("click", () => {
+          const confirmed = confirm(`Удалить проект "${project.title}"?`);
+
+          if (!confirmed) {
+            return;
+          }
+
+          state = state.filter((item) => item.id !== project.id);
+          saveState();
+          renderProjects();
+        });
+
+        columnForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const columnName = columnTitle.value.trim();
+
+          if (!columnName) {
+            return;
+          }
+
+          project.columns.push({
+            id: createId("column"),
+            title: columnName,
+            color: columnColor.value,
+            cards: []
+          });
+
+          columnTitle.value = "";
+          columnColor.value = "#dbeafe";
+          saveState();
+          renderProjects();
+        });
+
+        renderBoard(project, board);
+        return projectNode;
+      }
+
+      function renderBoard(project, board) {
+        board.replaceChildren();
+
+        if (project.columns.length === 0) {
           const emptyMessage = document.createElement("p");
           emptyMessage.className = "board__empty";
           emptyMessage.textContent = "Добавьте первый столбец.";
@@ -133,7 +256,7 @@
           return;
         }
 
-        state.forEach((column) => {
+        project.columns.forEach((column) => {
           const columnNode = columnTemplate.content.firstElementChild.cloneNode(true);
           const title = columnNode.querySelector("h2");
           const count = columnNode.querySelector(".column__count");
@@ -142,10 +265,12 @@
           const cardInput = cardForm.querySelector("input");
           const cardList = columnNode.querySelector(".card-list");
 
+          columnNode.dataset.projectId = project.id;
           columnNode.dataset.columnId = column.id;
           title.textContent = column.title;
           count.textContent = `${column.cards.length} ${getTaskWord(column.cards.length)}`;
           accent.style.background = column.color;
+          cardList.dataset.projectId = project.id;
           cardList.dataset.columnId = column.id;
 
           column.cards.forEach((card) => {
@@ -163,7 +288,7 @@
             column.cards.push({ id: createId("card"), title: cardTitle });
             cardInput.value = "";
             saveState();
-            renderBoard();
+            renderProjects();
           });
 
           cardList.addEventListener("dragover", (event) => {
@@ -179,7 +304,7 @@
             event.preventDefault();
             cardList.classList.remove("card-list--drag-over");
             const cardId = event.dataTransfer.getData("text/plain") || draggedCard;
-            moveCard(cardId, column.id);
+            moveCard(cardId, project.id, column.id);
           });
 
           board.append(columnNode);
@@ -224,28 +349,27 @@
         return "задач";
       }
 
-      columnForm.addEventListener("submit", (event) => {
+      projectForm.addEventListener("submit", (event) => {
         event.preventDefault();
-        const title = columnTitle.value.trim();
+        const title = projectTitle.value.trim();
 
         if (!title) {
           return;
         }
 
         state.push({
-          id: createId("column"),
+          id: createId("project"),
           title,
-          color: columnColor.value,
-          cards: []
+          collapsed: false,
+          columns: []
         });
 
-        columnTitle.value = "";
-        columnColor.value = "#dbeafe";
+        projectTitle.value = "";
         saveState();
-        renderBoard();
+        renderProjects();
       });
 
-      renderBoard();
+      renderProjects();
     </script>
   </body>
 </html>
