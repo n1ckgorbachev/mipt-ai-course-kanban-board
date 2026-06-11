@@ -3,15 +3,23 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kanban Board</title>
-    <link rel="stylesheet" href="style.css?v=20260611-projects">
+    <title>Инго Экосистема</title>
+    <link rel="stylesheet" href="style.css?v=20260611-ingo">
   </head>
   <body>
     <main class="app">
       <header class="app__header">
-        <div>
-          <h1>Kanban Board</h1>
-          <p>Доска задач с проектами, настраиваемыми колонками и цветами карточек.</p>
+        <div class="brand">
+          <div class="brand__mark" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div>
+            <p class="brand__eyebrow">Проектный контур</p>
+            <h1>Инго Экосистема</h1>
+            <p>Канбан-доска для продуктовых и сервисных задач экосистемы.</p>
+          </div>
         </div>
 
         <form class="project-form" id="project-form">
@@ -73,14 +81,14 @@
       const STORAGE_KEY = "kanban-board-state";
       const DEFAULT_PROJECT_TITLE = "Основной проект";
       const DEFAULT_COLUMNS = [
-        { id: "todo", title: "К выполнению", color: "#e0f2fe", cards: [
+        { id: "todo", title: "К выполнению", color: "#dff4ff", cards: [
           { id: "task-1", title: "Собрать требования" },
           { id: "task-2", title: "Оценить задачи" }
         ] },
-        { id: "progress", title: "В работе", color: "#fef3c7", cards: [
+        { id: "progress", title: "В работе", color: "#e7f7ef", cards: [
           { id: "task-3", title: "Сверстать интерфейс" }
         ] },
-        { id: "done", title: "Готово", color: "#dcfce7", cards: [] }
+        { id: "done", title: "Готово", color: "#e8eaff", cards: [] }
       ];
       const DEFAULT_PROJECTS = [
         { id: "project-main", title: DEFAULT_PROJECT_TITLE, collapsed: false, columns: DEFAULT_COLUMNS }
@@ -236,7 +244,7 @@
           });
 
           columnTitle.value = "";
-          columnColor.value = "#dbeafe";
+          columnColor.value = "#dff4ff";
           saveState();
           renderProjects();
         });
